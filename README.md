@@ -31,13 +31,13 @@ https://flink.apache.org/news/2020/01/15/demo-fraud-detection.html
 
 ## 项目架构设计
 
-![struc.png](https://github.com/Omnd4cc/ActiveDataWarehousePrototype/blob/main/images/struc.png?raw=true)
+![struc.png](https://github.com/Omnd4cc/ActiveDataWarehousePrototype/blob/main/images/struc.png)
 
 控制流包括描述查询分析的控制信息，通过Flink连接流特性与待分析事件流一起接入到动态键生成流程中。在动态键生成流程，根据查询规则集合对待分析事件进行键值型格式化处理及隐式复制，让每一条规则都有其对应的格式化数据。接下来查询流程根据查询规则对数据进行分析。控制信息可以动态控制上述格式化处理流程中的分区状态及查询流程中的查询状态。待分析数据经过分析流程得到分析结果如果满足主动规则触发条件，触发主动查询规则，最后对分析结果进行进一步处理如可视化。
 
 工作流如下：
 
-![dataflow.png](https://github.com/Omnd4cc/ActiveDataWarehousePrototype/blob/main/images/dataflow.png?raw=true)
+![dataflow.png](https://github.com/Omnd4cc/ActiveDataWarehousePrototype/blob/main/images/dataflow.png)
 
 ## 项目环境
 
