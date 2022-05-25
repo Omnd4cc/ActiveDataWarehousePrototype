@@ -12,7 +12,7 @@ Prototype of an active data warehouse analysis process based on Flink and Kafka 
 ## 项目来源
 
 项目基于主动数据仓库的思想，从Flink欺诈检测博客出发，在Flink欺诈检测应用的基础上加入了规则控制机制，以此完成主动数据仓库的ECA自动概念。
-
+https://flink.apache.org/news/2020/01/15/demo-fraud-detection.html
 [Advanced Flink Application Patterns Vol.1: Case Study of a Fraud Detection System]: https://flink.apache.org/news/2020/01/15/demo-fraud-detection.html
 
 本项目添加特性：
