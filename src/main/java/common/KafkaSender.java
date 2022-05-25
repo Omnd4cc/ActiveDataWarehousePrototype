@@ -2,6 +2,7 @@ package common;
 
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.SerializationUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import rule.Rule;
@@ -25,7 +26,8 @@ public class KafkaSender {
     private volatile static KafkaSender instance;
     private Integer ruleCount = 10;
     private static KafkaProducer<String, String> producer;
-    private static String[] reqCache = new String[100];
+    private static SnowflakeIdWorker idWorker;
+    private static String[] reqCache = new String[10];
     private static Integer reqCacheCounter = 0;
 
 
@@ -37,6 +39,7 @@ public class KafkaSender {
         properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
         producer = new KafkaProducer<String, String>(properties);
+        idWorker = new SnowflakeIdWorker(0,0);
     }
 
     public static KafkaSender getInstance() {
@@ -50,22 +53,28 @@ public class KafkaSender {
         return instance;
     }
 
-    public void sendRule(Rule item, @Nullable Keyed<CarRide, String, Integer> value) {
+    public void sendRule(Rule rule, @Nullable Keyed<SHCarRide, String, Long> value) {
 
-        String id = String.valueOf(item.getQueryId());
-        if (Arrays.asList(reqCache).contains(id)) {
+        //用于修改值及拷贝
+        Rule item = (Rule) SerializationUtils.clone(rule);
+        //用于处理DELETE的结果不小心对主动规则也做出了限制。添加CarID，如果为DELETE信息id为null
+//        String idAndCarID = item.getQueryId() +String.valueOf(value.getWrapped().getCarId());
+        String idAndCarID = item.getQueryId() +String.valueOf((value == null)? "" : value.getWrapped().carId);
+
+
+        if (Arrays.asList(reqCache).contains(idAndCarID)) {
             return;
         }
         synchronized (KafkaSender.class) {
             // 双重检查锁（double checked locking）提高程序的执行效率
-            if (Arrays.asList(reqCache).contains(id)) {
+            if (Arrays.asList(reqCache).contains(idAndCarID)) {
                 return;
             }
             // 记录请求 ID
             if (reqCacheCounter >= reqCache.length) {
                 reqCacheCounter = 0;
             }
-            reqCache[reqCacheCounter] = String.valueOf(id);
+            reqCache[reqCacheCounter] = String.valueOf(idAndCarID);
             reqCacheCounter++;
         }
 
@@ -76,7 +85,9 @@ public class KafkaSender {
             List<String> keys = item.getGroupingKeyNames();
             List<String> fixedKeys = new ArrayList<String>();
             StringBuilder tmpKey = new StringBuilder();
-            List<Rule.windowFilterRules> filterRules = item.getWindowFilterRules();
+            List<WindowFilterRules> filterRules = item.getWindowFilterRules();
+//            System.out.println("2"+item);
+
             for (String key : keys) {
                 if (key.charAt(0) == '$') {
                     try {
@@ -84,7 +95,7 @@ public class KafkaSender {
                         Field field = value.getWrapped().getClass().getField(tmpKey.toString());
                         String keyValue = String.valueOf(field.get(value.getWrapped()));
                         log.info(field + " = " + keyValue);
-                        filterRules.add(new Rule.windowFilterRules(tmpKey.toString(), "=", keyValue));
+                        filterRules.add(new WindowFilterRules(tmpKey.toString(), "=", keyValue));
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -95,11 +106,13 @@ public class KafkaSender {
                 fixedKeys.add(tmpKey.toString());
             }
             //重新赋值
+            item.setActiveTime(System.currentTimeMillis());
             item.setWindowFilterRules(filterRules);
             item.setGroupingKeyNames(fixedKeys);
-            item.setQueryId(ruleCount++);
+            item.setActiveId(value.getId());
+//            item.setQueryId(ruleCount++);
+            item.setQueryId(idWorker.nextId());
         }
-
 
         ProducerRecord<String, String> record = new ProducerRecord<String, String>("rules", JSONObject.toJSONString(item));
         try {

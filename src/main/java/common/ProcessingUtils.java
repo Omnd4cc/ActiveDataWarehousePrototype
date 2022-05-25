@@ -15,7 +15,7 @@ import java.util.Set;
  */
 public class ProcessingUtils {
 
-    public static void handleRuleBroadcast(Rule rule, BroadcastState<Integer, Rule> broadcastState)
+    public static void handleRuleBroadcast(Rule rule, BroadcastState<Long, Rule> broadcastState)
             throws Exception {
         switch (rule.getQueryState()) {
             case ACTIVE:

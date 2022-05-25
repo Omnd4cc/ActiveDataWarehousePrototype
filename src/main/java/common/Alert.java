@@ -14,7 +14,7 @@ import rule.Rule;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Alert<Event, Value> {
-    private Integer ruleId;
+    private Long ruleId;
     private Rule violatedRule;
     private String key;
 

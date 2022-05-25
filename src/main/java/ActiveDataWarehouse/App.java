@@ -1,11 +1,13 @@
 package ActiveDataWarehouse;
 
 import common.CarRide;
+import common.SHCarRide;
 import operator.DynamicKeyFunction;
 import operator.DynamicQueryFunction;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.streaming.api.datastream.BroadcastStream;
@@ -17,7 +19,9 @@ import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrderness
 import org.apache.flink.streaming.api.windowing.time.Time;
 import rule.Rule;
 import rule.RuleDeserializer;
+import source.CarDataFromFiles;
 import source.CarDataSource;
+import source.ShCarDataDeserializer;
 
 import java.util.concurrent.TimeUnit;
 
@@ -38,29 +42,30 @@ public class App {
                 .setGroupId("rules")
                 .build();
 
-        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(1);
-//        DataStreamSource<String> ruleStream = env.addSource(new RuleFromFile());
+//        final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        Configuration conf = new Configuration();
+//        conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true);
+        final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf).setParallelism(1);
+
         DataStreamSource<String> ruleSourceStream = env.fromSource(ruleSource, WatermarkStrategy.noWatermarks(),"kafka Source");
+
         DataStream<Rule> getRulesUpdateStream = ruleSourceStream
                 .returns(Types.STRING)
                 .flatMap(new RuleDeserializer())
-                .name("Rule Deserialization")
-                .setParallelism(1).assignTimestampsAndWatermarks(
-                        new BoundedOutOfOrdernessTimestampExtractor<Rule>(Time.of(0, TimeUnit.MILLISECONDS)) {
-                            @Override
-                            public long extractTimestamp(Rule element) {
-                                // Prevents connected data+update stream watermark stalling.
-                                return Long.MAX_VALUE;
-                            }
-                        });
-        getRulesUpdateStream.print();
+                .name("Rule Deserialization");
+
 
         BroadcastStream<Rule> rulesStream = getRulesUpdateStream.broadcast(DynamicKeyFunction.Descriptors.rulesDescriptor);
 
-        DataStream<CarRide> carRideSource= env.addSource(new CarDataSource());
+        ruleSourceStream.print();
+        DataStream<SHCarRide> shCarRideSource= env
+                .addSource(new CarDataFromFiles())
+                .flatMap(new ShCarDataDeserializer())
+                .name("CarData Deserialization");
 
-        DataStream alerts =  carRideSource
+//        shCarRideSource.print();
+
+        DataStream alerts =  shCarRideSource
                 .connect(rulesStream)
                 .process(new DynamicKeyFunction())
                 .uid("DynamicKeyFunction")
@@ -69,9 +74,14 @@ public class App {
                 .connect(rulesStream)
                 .process(new DynamicQueryFunction());
 
-        DataStream<String> allRuleEvaluations =
-                ((SingleOutputStreamOperator<Rule>) alerts).getSideOutput(DynamicKeyFunction.Descriptors.demoSinkTag);
-        allRuleEvaluations.print().setParallelism(1).name("Rule Evaluation Sink");
+//        DataStream<String> allRuleEvaluations =
+//                ((SingleOutputStreamOperator<Rule>) alerts).getSideOutput(DynamicKeyFunction.Descriptors.demoSinkTag);
+//        allRuleEvaluations.print().setParallelism(1).name("Rule Evaluation Sink");
+
+//        DataStream<Long> lagenctyData =
+//                ((SingleOutputStreamOperator<Rule>) alerts).getSideOutput(DynamicKeyFunction.Descriptors.latencySinkTag);
+//        lagenctyData.print().name("lagency Sink");
         env.execute();
+
     }
 }

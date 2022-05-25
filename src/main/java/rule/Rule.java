@@ -1,13 +1,12 @@
 package rule;
+import common.WindowFilterRules;
+import lombok.*;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.List;
+
 
 /**
  * @auther: zk
@@ -16,21 +15,23 @@ import java.util.List;
 @EqualsAndHashCode
 @ToString
 @Data
-public class Rule {
+public class Rule implements Serializable {
 
-    private Integer queryId;
+    private Long queryId;
     private RuleState queryState;
-    private List<windowFilterRules> windowFilterRules;
+    private List<WindowFilterRules> windowFilterRules;
     private List<String> groupingKeyNames;
     private String aggregateFieldName;
     private AggregatorFunctionType aggregatorFunctionType;
     private LimitOperatorType limitOperatorType;
     private BigDecimal limit;
     private Long windowMilliseconds;
+    private Long frequencyMilliseconds;
     private List<Rule> alertRules;
     private Long activeTime;
     private Long lastTime;
     private ControlType controlType;
+    private Long activeId;
 
     @Override
     public String toString() {
@@ -82,7 +83,7 @@ public class Rule {
         SUM,
         AVG,
         MIN,
-        MAX
+        MAX,
     }
 
     public enum LimitOperatorType {
@@ -123,16 +124,5 @@ public class Rule {
         EXPORT_RULES_CURRENT
     }
 
-    /**
-     * @auther: zk
-     * @date: 2021/12/22 10:29
-     */
-    @EqualsAndHashCode
-    @Data
-    @AllArgsConstructor
-    public static class windowFilterRules {
-        private String field;
-        private String operator;
-        private String value;
-    }
+
 }
